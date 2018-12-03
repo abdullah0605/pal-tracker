@@ -3,52 +3,76 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.boot.actuate.metrics.CounterService;
+import org.springframework.boot.actuate.metrics.GaugeService;
 
 import java.util.List;
 
 @RestController
+@RequestMapping("/time-entries")
 public class TimeEntryController {
 
-    TimeEntryRepository repository;
+    private  final TimeEntryRepository timeEntriesRepo;
+    private  final CounterService counter ;
+    private  final GaugeService gauge ;
 
-    public TimeEntryController() {}
-
-    @Autowired
-    public TimeEntryController(TimeEntryRepository repository) {
-        this.repository = repository;
-
+    public TimeEntryController(
+            TimeEntryRepository timeEntriesRepo,
+            CounterService counter,
+            GaugeService gauge
+    ) {
+        this.timeEntriesRepo = timeEntriesRepo;
+        this.counter = counter;
+        this.gauge = gauge;
     }
 
-    @PostMapping("/time-entries")
+
     public ResponseEntity<TimeEntry> create(@RequestBody TimeEntry timeEntry)
     {
-        return new ResponseEntity<TimeEntry>(repository.create(timeEntry), HttpStatus.CREATED);
+        TimeEntry createdTimeEntry = timeEntriesRepo.create(timeEntry);
+        counter.increment("TimeEntry.created");
+        gauge.submit("timeEntries.count", timeEntriesRepo.list().size());
+
+        return new ResponseEntity<>(createdTimeEntry, HttpStatus.CREATED);
     }
 
-    @GetMapping("/time-entries/{id}")
-    public ResponseEntity<TimeEntry> read(@PathVariable("id") long timeEntryId)
+    @GetMapping("{id}")
+    public ResponseEntity<TimeEntry> read(@PathVariable("id") long id)
     {
-        TimeEntry find = repository.find(timeEntryId);
-        if (find == null)
-            return new ResponseEntity<TimeEntry>(find, HttpStatus.NOT_FOUND);
-            else return new ResponseEntity<TimeEntry>(find, HttpStatus.OK);
+        TimeEntry timeEntry = timeEntriesRepo.find(id);
+        if (timeEntry != null) {
+            counter.increment("TimeEntry.read");
+            return new ResponseEntity<>(timeEntry, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
 
     }
 
-    @PutMapping("/time-entries/{id}")
-    public ResponseEntity<TimeEntry> update(@PathVariable("id")  long timeEntryId, @RequestBody TimeEntry expected){
-        TimeEntry updated = repository.update(timeEntryId,expected);
-        if (updated == null) return new ResponseEntity<TimeEntry>( updated, HttpStatus.NOT_FOUND);
-        else return new ResponseEntity<TimeEntry>(updated, HttpStatus.OK);
+    @PutMapping("{id}")
+    public ResponseEntity<TimeEntry> update(@PathVariable("id")  long id, @RequestBody TimeEntry timeEntry){
+        TimeEntry updatedTimeEntry = timeEntriesRepo.update(id, timeEntry);
+        if (updatedTimeEntry != null) {
+            counter.increment("TimeEntry.updated");
+            return new ResponseEntity<>(updatedTimeEntry, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
     }
 
-    @DeleteMapping("/time-entries/{id}")
-    public ResponseEntity<TimeEntry>  delete(@PathVariable("id") long timeEntryId) {
-        return new ResponseEntity<TimeEntry>(repository.delete(timeEntryId), HttpStatus.NO_CONTENT);
+    @DeleteMapping("{id}")
+    public ResponseEntity<TimeEntry>  delete(@PathVariable("id") long id) {
+        timeEntriesRepo.delete(id);
+        counter.increment("TimeEntry.deleted");
+        gauge.submit("timeEntries.count", timeEntriesRepo.list().size());
+
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
-    @GetMapping("/time-entries")
+
     public ResponseEntity<List<TimeEntry>> list() {
-        return new ResponseEntity<List<TimeEntry>>((repository.list()), HttpStatus.OK);
+        counter.increment("TimeEntry.listed");
+        return new ResponseEntity<>(timeEntriesRepo.list(), HttpStatus.OK);
     }
+
 }

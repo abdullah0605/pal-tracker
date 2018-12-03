@@ -16,15 +16,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.*;
+import org.springframework.boot.actuate.metrics.CounterService;
+import org.springframework.boot.actuate.metrics.GaugeService;
 
 public class TimeEntryControllerTest {
     private TimeEntryRepository timeEntryRepository;
     private TimeEntryController controller;
+    private CounterService counterService;
+    private GaugeService gaugeService;
 
     @Before
     public void setUp() throws Exception {
         timeEntryRepository = mock(TimeEntryRepository.class);
-        controller = new TimeEntryController(timeEntryRepository);
+        counterService = mock(CounterService.class);
+        gaugeService = mock(GaugeService.class);
+        controller = new TimeEntryController(timeEntryRepository,counterService,gaugeService);
     }
 
     @Test
